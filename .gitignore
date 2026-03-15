@@ -1,0 +1,5 @@
+# Embedding cache and cloned PDF repos (local data)
+backend/data/
+
+# Local env with secrets (copy from backend/.env.example to backend/.env)
+backend/.env

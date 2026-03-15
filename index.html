@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vessel Safety &amp; Standards</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body>
+  <div class="chat-app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2 class="sidebar-title">Messages</h2>
+        <button type="button" class="icon-btn" id="newChatBtn" aria-label="New chat">+</button>
+      </div>
+      <div class="sidebar-search">
+        <span class="sidebar-search-icon" aria-hidden="true">⌕</span>
+        <input type="text" placeholder="Search conversations" class="sidebar-search-input" id="searchConversations" />
+      </div>
+      <nav class="conversation-list" id="conversationList">
+        <!-- Chats populated by app.js -->
+      </nav>
+    </aside>
+
+    <div class="chat-panel">
+      <header class="chat-header">
+        <div class="header-avatar">M</div>
+        <div class="header-info">
+          <h1>Vessel Safety &amp; Standards</h1>
+          <span class="status">Ask about safety and standards for cargo and passenger vessels</span>
+        </div>
+        <input type="file" id="pdfUploadInput" accept=".pdf,application/pdf" multiple hidden />
+        <button type="button" class="header-btn header-btn--upload" id="addPdfBtn" title="Add PDF to knowledge base">
+          <span class="header-btn-icon">📄</span>
+          <span>Add Knowledge</span>
+        </button>
+        <button type="button" class="header-btn header-btn--clear" id="clearChatBtn" title="Clear this chat's history">
+          <span class="header-btn-icon">🗑</span>
+          <span>Clear chat</span>
+        </button>
+      </header>
+
+      <main class="chat-main">
+      <div class="messages" id="messages">
+        <!-- Messages for selected chat rendered by app.js -->
+      </div>
+
+      <div class="composer-wrap">
+        <div class="composer-attachments" id="composerAttachments" aria-live="polite"></div>
+        <form class="composer" id="composer">
+          <input type="file" id="chatAttachInput" accept=".pdf,application/pdf,image/*" multiple hidden />
+          <button type="button" class="composer-btn composer-btn--attach" id="chatAttachBtn" aria-label="Attach file or photo (for this chat only)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <input
+            type="text"
+            class="composer-input"
+            id="messageInput"
+            placeholder="Type a message…"
+            autocomplete="off"
+          />
+          <button type="submit" class="composer-btn composer-btn--send" aria-label="Send">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </main>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="newChatModal" hidden>
+    <div class="modal modal--name">
+      <div class="modal-header">
+        <h3>New chat</h3>
+        <button type="button" class="icon-btn modal-close" id="closeNewChatModal" aria-label="Close">×</button>
+      </div>
+      <form class="modal-form" id="newChatNameForm">
+        <label class="modal-label" for="newChatNameInput">Enter your name for this chat</label>
+        <input type="text" class="modal-input" id="newChatNameInput" placeholder="Your name" autocomplete="name" />
+        <div class="modal-actions">
+          <button type="button" class="btn btn--secondary" id="cancelNewChatBtn">Cancel</button>
+          <button type="submit" class="btn btn--primary">Start chat</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="app.js?v=10"></script>
+</body>
+</html>
