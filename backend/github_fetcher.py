@@ -2,8 +2,11 @@
 Clone a GitHub repo to a local directory so PDFs can be loaded from it.
 Supports pushing new files back to the remote.
 """
+import logging
 import subprocess
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def get_git_repo_root(start_path: Path) -> Path | None:
@@ -50,8 +53,10 @@ def push_to_github(repo_root: Path, relative_paths: list[str], commit_message: s
         return None
     except subprocess.CalledProcessError as e:
         err = (e.stderr or e.stdout or b"").decode().strip() or str(e)
+        logger.warning("Git push failed: %s", err)
         return err
     except FileNotFoundError:
+        logger.warning("Git not found on PATH")
         return "Git is not installed or not on PATH."
 
 
@@ -76,7 +81,7 @@ def clone_or_update_repo(git_url: str, dest_parent: Path) -> Path:
 
     try:
         if dest.exists() and (dest / ".git").exists():
-            print("Git: pulling latest changes...", flush=True)
+            logger.info("Git: pulling latest changes...")
             subprocess.run(
                 ["git", "pull", "--quiet"],
                 cwd=dest,
@@ -85,7 +90,7 @@ def clone_or_update_repo(git_url: str, dest_parent: Path) -> Path:
             )
             return dest
 
-        print("Git: cloning repository (may take a moment)...", flush=True)
+        logger.info("Git: cloning repository (may take a moment)...")
         subprocess.run(
             ["git", "clone", "--depth", "1", "--quiet", git_url, str(dest)],
             check=True,
@@ -93,10 +98,13 @@ def clone_or_update_repo(git_url: str, dest_parent: Path) -> Path:
         )
         return dest
     except FileNotFoundError:
+        logger.error("Git is not installed or not on PATH")
         raise RuntimeError(
             "Git is not installed or not on PATH. Install Git to use GITHUB_PDF_REPO_URL."
         ) from None
     except subprocess.CalledProcessError as e:
+        err_msg = (e.stderr or b"").decode().strip() or str(e)
+        logger.exception("Git clone/pull failed for %s: %s", git_url, err_msg)
         raise RuntimeError(
-            f"Git clone/pull failed for {git_url}. Check URL and network. {e.stderr.decode() if e.stderr else ''}"
+            f"Git clone/pull failed for {git_url}. Check URL and network. {err_msg}"
         ) from e

@@ -3,3 +3,6 @@ backend/data/
 
 # Local env with secrets (copy from backend/.env.example to backend/.env)
 backend/.env
+
+# Launcher-generated batch file (paths with spaces)
+_start_backend.bat

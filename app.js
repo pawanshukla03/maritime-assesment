@@ -7,6 +7,7 @@ const conversationListEl = document.getElementById("conversationList");
 const addPdfBtn = document.getElementById("addPdfBtn");
 const pdfUploadInput = document.getElementById("pdfUploadInput");
 const clearChatBtn = document.getElementById("clearChatBtn");
+const viewLogsBtn = document.getElementById("viewLogsBtn");
 const chatAttachInput = document.getElementById("chatAttachInput");
 const chatAttachBtn = document.getElementById("chatAttachBtn");
 const composerAttachmentsEl = document.getElementById("composerAttachments");
@@ -15,7 +16,37 @@ const MAX_CHAT_ATTACHMENTS = 5;
 const MAX_CHAT_ATTACHMENTS_BYTES = 25 * 1024 * 1024; // 25MB
 
 const API_BASE = "http://127.0.0.1:8000";
+const CLIENT_ERROR_STORAGE_KEY = "vessel_safety_last_client_error";
 let toastTimeout = null;
+
+function reportErrorToLogs(context, message) {
+  const payload = JSON.stringify({ message, context });
+  fetch(API_BASE + "/api/log-client-error", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+  }).catch(() => {
+    try {
+      localStorage.setItem(CLIENT_ERROR_STORAGE_KEY, JSON.stringify({ context, message, time: new Date().toISOString() }));
+    } catch (e) {}
+  });
+}
+
+function flushStoredErrorToLogs() {
+  try {
+    const raw = localStorage.getItem(CLIENT_ERROR_STORAGE_KEY);
+    if (!raw) return;
+    const { context, message } = JSON.parse(raw);
+    localStorage.removeItem(CLIENT_ERROR_STORAGE_KEY);
+    fetch(API_BASE + "/api/log-client-error", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, context: (context || "unknown") + " (reported on next load)" }),
+    }).catch(() => {
+      localStorage.setItem(CLIENT_ERROR_STORAGE_KEY, raw);
+    });
+  } catch (e) {}
+}
 
 function showToast(message, type = "success") {
   const existing = document.getElementById("uploadToast");
@@ -369,7 +400,9 @@ async function sendMessage(text) {
     }
 
     if (!response.ok) {
-      assistantContentEl.textContent = `Error: ${response.status} ${response.statusText}`;
+      const errText = `Error: ${response.status} ${response.statusText}. Check the Logs button in the header for details.`;
+      assistantContentEl.textContent = errText;
+      reportErrorToLogs("chat", response.status + " " + response.statusText);
       scrollToBottom();
       setLoading(false);
       renderConversationList();
@@ -390,7 +423,9 @@ async function sendMessage(text) {
     }
 
     if (full) {
-      assistantContentEl.innerHTML = renderMarkdown(full);
+      const isErrorFromBackend = full.trim().toLowerCase().startsWith("error:");
+      assistantContentEl.innerHTML = renderMarkdown(full)
+        + (isErrorFromBackend ? '<p class="message-log-hint">Check the <strong>Logs</strong> button in the header for full error details.</p>' : "");
       conv.messages.push({ role: "assistant", content: full });
     }
     conv.updatedAt = new Date().toISOString();
@@ -399,9 +434,15 @@ async function sendMessage(text) {
     renderConversationList();
     saveConversationsToStorage();
   } catch (err) {
-    assistantContentEl.textContent = "Error: " + (err.message || "Could not reach the server. Is the backend running?");
+    const msg = err.message || "Unknown error";
+    const isFetchFailed = /failed to fetch|network error|load failed/i.test(msg);
+    const hint = isFetchFailed
+      ? " Is the backend running at " + API_BASE + "? Start it with Start.bat, then try again. Check the Logs button for server details."
+      : " Check the Logs button in the header for server-side details.";
+    assistantContentEl.textContent = "Error: " + msg + hint;
     scrollToBottom();
     renderConversationList();
+    reportErrorToLogs("chat", msg);
   }
 
   setLoading(false);
@@ -480,6 +521,12 @@ if (clearChatBtn) {
   });
 }
 
+if (viewLogsBtn) {
+  viewLogsBtn.addEventListener("click", () => {
+    window.open(API_BASE + "/api/logs/download", "_blank", "noopener");
+  });
+}
+
 if (addPdfBtn && pdfUploadInput) {
   addPdfBtn.addEventListener("click", () => pdfUploadInput.click());
   pdfUploadInput.addEventListener("change", async () => {
@@ -517,6 +564,9 @@ messageInput.addEventListener("keydown", (e) => {
     sendMessage(messageInput.value);
   }
 });
+
+// Report any previously stored client error to backend logs (e.g. "Failed to fetch" when backend was down)
+flushStoredErrorToLogs();
 
 // Load saved history or start with new chat
 (function initChatHistory() {

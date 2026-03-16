@@ -1,15 +1,18 @@
 """
 Agent orchestrator: retrieve context from PDF, then stream OpenAI chat completion.
+All errors and important events are logged to backend/logs/maritime.log.
 """
 import base64
 import json
+import logging
 import re
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -23,8 +26,12 @@ from config import (
     SYSTEM_PROMPT_TEMPLATE,
 )
 from github_fetcher import get_git_repo_root, push_to_github
+from logging_config import get_log_path, setup_logging
 from pdf_loader import load_pdf_text_from_bytes
 from retriever import PDFRetriever
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 retriever: PDFRetriever | None = None
 pdf_load_error: str | None = None
@@ -35,27 +42,30 @@ pdf_source_type: str = "file"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global retriever, pdf_load_error, pdf_source_path, pdf_source_type
+    logger.info("Maritime Assessment backend starting (logs: %s)", get_log_path())
     pdf_load_error = None
     pdf_source_path = None
     pdf_source_type = "file"
     try:
-        print("Starting: fetching PDF source...", flush=True)
+        logger.info("Starting: fetching PDF source...")
         path, source_type = get_pdf_source()
         pdf_source_path = path
         pdf_source_type = source_type
-        print(f"PDF source: {source_type} at {path}", flush=True)
-        print("Building search index (this may take 1–2 minutes for many PDFs)...", flush=True)
+        logger.info("PDF source: %s at %s", source_type, path)
+        logger.info("Building search index (this may take 1–2 minutes for many PDFs)...")
         retriever = PDFRetriever(path, source_type=source_type)
         docs = getattr(retriever, "document_names", [])
         if docs:
-            print("Documents loaded:", flush=True)
+            logger.info("Documents loaded from %s (%d total):", source_type, len(docs))
             for i, name in enumerate(docs, 1):
-                print(f"  {i}. {name}", flush=True)
-        print("Application startup complete.", flush=True)
+                logger.info("  %d. %s", i, name)
+        else:
+            logger.info("No PDF documents found in source.")
+        logger.info("Application startup complete.")
     except Exception as e:
         retriever = None
         pdf_load_error = str(e)
-        print(f"Warning: Could not load PDF index: {e}")
+        logger.warning("Could not load PDF index: %s", e, exc_info=True)
     yield
     retriever = None
     pdf_load_error = None
@@ -83,6 +93,11 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = []
 
 
+class ClientErrorReport(BaseModel):
+    message: str
+    context: str | None = None
+
+
 def build_messages(
     context: str,
     history: list[ChatMessage],
@@ -105,9 +120,11 @@ def build_messages(
 
 def stream_chat(message: str, history: list[ChatMessage]):
     if not OPENAI_API_KEY:
+        logger.error("Chat failed: OPENAI_API_KEY is not set")
         yield "Error: OPENAI_API_KEY is not set."
         return
     if not retriever:
+        logger.warning("Chat failed: Knowledge base not loaded (GITHUB_PDF_REPO_URL / PDF_PATH)")
         yield "Error: Knowledge base could not be loaded. Check server logs or GITHUB_PDF_REPO_URL / PDF_PATH."
         return
 
@@ -124,6 +141,7 @@ def stream_chat(message: str, history: list[ChatMessage]):
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     try:
+        logger.info("OpenAI chat request (model=%s, history_len=%d)", OPENAI_MODEL, len(history))
         stream = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
@@ -132,8 +150,16 @@ def stream_chat(message: str, history: list[ChatMessage]):
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
+        logger.debug("OpenAI chat stream completed")
     except Exception as e:
-        yield f"Error: {str(e)}"
+        err_msg = str(e)
+        logger.error(
+            "OpenAI API error: %s | type=%s | traceback=%s",
+            err_msg,
+            type(e).__name__,
+            traceback.format_exc(),
+        )
+        yield f"Error: {err_msg}"
 
 
 # Allowed image types for in-chat attachments (vision). Not added to knowledge base.
@@ -148,6 +174,7 @@ def stream_chat_with_attachments(
 ):
     """Stream chat using RAG context + attachment text (PDFs) and optional images (vision). Attachments are not added to the knowledge base."""
     if not OPENAI_API_KEY:
+        logger.error("Chat with attachments failed: OPENAI_API_KEY is not set")
         yield "Error: OPENAI_API_KEY is not set."
         return
 
@@ -189,6 +216,12 @@ def stream_chat_with_attachments(
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     try:
+        logger.info(
+            "OpenAI chat-with-attachments (model=%s, history_len=%d, images=%d)",
+            OPENAI_MODEL,
+            len(history),
+            len(image_parts),
+        )
         stream = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
@@ -197,8 +230,16 @@ def stream_chat_with_attachments(
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
+        logger.debug("OpenAI chat-with-attachments stream completed")
     except Exception as e:
-        yield f"Error: {str(e)}"
+        err_msg = str(e)
+        logger.error(
+            "OpenAI API error (chat-with-attachments): %s | type=%s | traceback=%s",
+            err_msg,
+            type(e).__name__,
+            traceback.format_exc(),
+        )
+        yield f"Error: {err_msg}"
 
 
 def _redact_token_from_url(url: str | None) -> str | None:
@@ -251,6 +292,7 @@ async def upload_pdf(files: list[UploadFile] = File(...)):
             dest.write_bytes(content)
             saved.append(safe_name)
         except Exception as e:
+            logger.exception("Upload PDF: failed to save %s", uf.filename)
             return {"ok": False, "error": f"Failed to save {uf.filename}: {e}", "saved_so_far": saved}
     if not saved:
         return {"ok": False, "error": "No valid PDF files to save. Send one or more .pdf files."}
@@ -266,6 +308,7 @@ async def upload_pdf(files: list[UploadFile] = File(...)):
     try:
         retriever = PDFRetriever(pdf_source_path, source_type="directory")
     except Exception as e:
+        logger.exception("Upload PDF: re-index failed after saving %s", saved)
         return {
             "ok": True,
             "saved": saved,
@@ -276,6 +319,7 @@ async def upload_pdf(files: list[UploadFile] = File(...)):
             + (" Pushed to GitHub." if push_error is None else f" Push to GitHub failed: {push_error}")
             + " Re-indexing failed; restart the server to include them.",
         }
+    logger.info("Upload PDF: saved and re-indexed %s", saved)
     return {
         "ok": True,
         "saved": saved,
@@ -312,6 +356,46 @@ def health():
     }
 
 
+@app.post("/api/log-client-error")
+def log_client_error(body: ClientErrorReport):
+    """Log errors reported by the frontend (e.g. Failed to fetch) into maritime.log."""
+    logger.error(
+        "Client-reported error | context=%s | message=%s",
+        body.context or "unknown",
+        body.message,
+    )
+    return {"ok": True}
+
+
+@app.get("/api/logs")
+def get_logs(lines: int = 500):
+    """
+    Return the last N lines of the application log file (errors, OpenAI API errors, etc.).
+    Use this to share logs when debugging: "Check the logs" → GET /api/logs or download the file.
+    """
+    log_path = get_log_path()
+    if not log_path.exists():
+        return {"log_path": str(log_path), "content": "", "message": "Log file not created yet."}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+        last = all_lines[-lines:] if len(all_lines) > lines else all_lines
+        content = "".join(last)
+        return {"log_path": str(log_path), "content": content, "total_lines": len(all_lines)}
+    except Exception as e:
+        logger.exception("Failed to read log file")
+        return {"log_path": str(log_path), "content": "", "error": str(e)}
+
+
+@app.get("/api/logs/download")
+def download_logs():
+    """Download the full maritime.log file for sharing when reporting issues."""
+    log_path = get_log_path()
+    if not log_path.exists():
+        return PlainTextResponse("Log file not created yet.\n", media_type="text/plain")
+    return FileResponse(log_path, filename="maritime.log", media_type="text/plain")
+
+
 @app.post("/chat")
 def chat(request: ChatRequest):
     return StreamingResponse(
@@ -333,7 +417,8 @@ async def chat_with_attachments(
     try:
         hist = json.loads(history)
         history_list = [ChatMessage(role=m.get("role", "user"), content=m.get("content", "")) for m in hist]
-    except Exception:
+    except Exception as e:
+        logger.warning("Chat-with-attachments: invalid history JSON: %s", e)
         history_list = []
 
     pdf_texts = []

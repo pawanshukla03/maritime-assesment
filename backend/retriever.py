@@ -3,6 +3,7 @@ Embed PDF chunks with OpenAI and retrieve relevant context for a query.
 Uses disk cache so repeated startups with same content skip API calls.
 """
 import hashlib
+import logging
 import pickle
 import re
 from pathlib import Path
@@ -12,6 +13,8 @@ from openai import OpenAI
 
 from config import CHUNK_OVERLAP, CHUNK_SIZE, MAX_CHUNKS, OPENAI_API_KEY, TOP_K_CHUNKS
 from pdf_loader import chunk_text, list_pdf_documents, load_all_pdfs_from_dir, load_pdf_text
+
+logger = logging.getLogger(__name__)
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 # Batch size for embedding API (fewer calls = faster startup)
@@ -49,7 +52,7 @@ def _save_cached_index(cache_key: str, chunks: list[str], embeddings: np.ndarray
         with open(path, "wb") as f:
             pickle.dump({"chunks": chunks, "embeddings": embeddings.tolist()}, f)
     except Exception as e:
-        print(f"Warning: could not save embedding cache: {e}", flush=True)
+        logger.warning("Could not save embedding cache: %s", e)
 
 
 def get_embedding(client: OpenAI, text: str) -> list[float]:
@@ -98,27 +101,31 @@ class PDFRetriever:
             return
         if MAX_CHUNKS and len(self.chunks) > MAX_CHUNKS:
             self.chunks = self.chunks[:MAX_CHUNKS]
-            print(f"Capped to {MAX_CHUNKS} chunks (set MAX_CHUNKS=0 for no cap).", flush=True)
+            logger.info("Capped to %s chunks (set MAX_CHUNKS=0 for no cap).", MAX_CHUNKS)
         n = len(self.chunks)
         cache_key = _cache_key(self.chunks)
         cached = _load_cached_index(cache_key)
         if cached is not None:
             self.chunks, self.embeddings = cached
-            print(f"Loaded {n} chunks from cache (no API calls).", flush=True)
+            logger.info("Loaded %s chunks from cache (no API calls).", n)
             return
         batch_size = EMBEDDING_BATCH_SIZE
         num_batches = (n + batch_size - 1) // batch_size
-        print(f"Embedding {n} chunks in {num_batches} batch(es)...", flush=True)
+        logger.info("Embedding %s chunks in %s batch(es)...", n, num_batches)
         vecs = []
-        for start in range(0, n, batch_size):
-            batch = self.chunks[start : start + batch_size]
-            batch_vecs = get_embeddings_batch(self.client, batch)
-            vecs.extend(batch_vecs)
-            done = min(start + batch_size, n)
-            print(f"  {done}/{n} chunks done", flush=True)
-        self.embeddings = np.array(vecs, dtype=float)
-        _save_cached_index(cache_key, self.chunks, self.embeddings)
-        print("Embedding cache saved for next startup.", flush=True)
+        try:
+            for start in range(0, n, batch_size):
+                batch = self.chunks[start : start + batch_size]
+                batch_vecs = get_embeddings_batch(self.client, batch)
+                vecs.extend(batch_vecs)
+                done = min(start + batch_size, n)
+                logger.debug("Embedding progress: %s/%s chunks", done, n)
+            self.embeddings = np.array(vecs, dtype=float)
+            _save_cached_index(cache_key, self.chunks, self.embeddings)
+            logger.info("Embedding cache saved for next startup.")
+        except Exception as e:
+            logger.exception("OpenAI embedding API error: %s", e)
+            raise
 
     def _normalize_code(self, s: str) -> str:
         """Normalize a code like '317 31 200' or '317.31.200' to '317-31-200' for matching."""

@@ -1,0 +1,65 @@
+2026-03-15 16:51:00 | ERROR    | launcher | Backend process exited. Likely cause: missing backend/.env (OPENAI_API_KEY, PDF_PATH or GITHUB_PDF_REPO_URL) or Python/import error. Check the backend window for the traceback.
+2026-03-15 16:53:01 | INFO     | launcher | Created backend/.env from .env.example (user must edit with real values).
+2026-03-15 16:54:20 | ERROR    | launcher | Backend process exited. Likely cause: missing backend/.env (OPENAI_API_KEY, PDF_PATH or GITHUB_PDF_REPO_URL) or Python/import error. Check the backend window for the traceback.
+2026-03-15 16:55:57 | ERROR    | launcher | Backend did not respond in time. Check the backend window for startup errors.
+2026-03-15 16:57:53 | ERROR    | launcher | Backend did not respond in time. Check the backend window for startup errors.
+2026-03-15 17:01:19 | INFO     | launcher | Installing backend dependencies (uvicorn missing).
+2026-03-15 17:01:47 | ERROR    | fastapi | Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-03-15 17:02:30 | ERROR    | launcher | Backend process exited. Likely cause: missing backend/.env (OPENAI_API_KEY, PDF_PATH or GITHUB_PDF_REPO_URL) or Python/import error. Check the backend window for the traceback.
+2026-03-15 17:02:44 | ERROR    | fastapi | Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-03-15 17:03:10 | ERROR    | launcher | Backend process exited. Likely cause: missing backend/.env (OPENAI_API_KEY, PDF_PATH or GITHUB_PDF_REPO_URL) or Python/import error. Check the backend window for the traceback.
+2026-03-15 17:03:40 | INFO     | launcher | Installing backend dependencies (uvicorn or python-multipart missing).
+2026-03-15 17:03:43 | INFO     | main | Maritime Assessment backend starting (logs: C:\Users\pawan\Cursor projects\Maritime Assesment\backend\logs\maritime.log)
+2026-03-15 17:03:43 | INFO     | main | Starting: fetching PDF source...
+2026-03-15 17:03:43 | INFO     | github_fetcher | Git: pulling latest changes...
+2026-03-15 17:03:45 | INFO     | main | PDF source: directory at C:\Users\pawan\Cursor projects\Maritime Assesment\backend\data\pdf_repos\acai\WAC
+2026-03-15 17:03:45 | INFO     | main | Building search index (this may take 1–2 minutes for many PDFs)...
+2026-03-15 17:03:49 | INFO     | retriever | Loaded 884 chunks from cache (no API calls).
+2026-03-15 17:03:49 | INFO     | main | Documents loaded: WAC 296-45.pdf, WAC 317-31-010.pdf, WAC 317-31-020.pdf, WAC 317-31-030.pdf, WAC 317-31-100.pdf, WAC 317-31-110.pdf, WAC 317-31-120.pdf, WAC 317-31-130.pdf, WAC 317-31-140.pdf, WAC 317-31-200.pdf ...
+2026-03-15 17:03:49 | INFO     | main | Application startup complete.
+2026-03-15 17:03:49 | INFO     | launcher | Backend started successfully.
+2026-03-15 17:03:51 | ERROR    | main | Client-reported error | context=chat (reported on next load) | message=Failed to fetch
+2026-03-15 17:04:04 | INFO     | httpx | HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2026-03-15 17:04:04 | INFO     | main | OpenAI chat request (model=gpt-4o-mini, history_len=4)
+2026-03-15 17:04:06 | INFO     | httpx | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-15 17:04:15 | INFO     | httpx | HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2026-03-15 17:04:15 | INFO     | main | OpenAI chat request (model=gpt-4o-mini, history_len=6)
+2026-03-15 17:04:17 | INFO     | httpx | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-15 17:04:30 | INFO     | httpx | HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2026-03-15 17:04:31 | INFO     | main | OpenAI chat request (model=gpt-4o-mini, history_len=8)
+2026-03-15 17:04:32 | INFO     | httpx | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-03-15 17:06:13 | INFO     | main | Maritime Assessment backend starting (logs: C:\Users\pawan\Cursor projects\Maritime Assesment\backend\logs\maritime.log)
+2026-03-15 17:06:13 | INFO     | main | Starting: fetching PDF source...
+2026-03-15 17:06:13 | INFO     | github_fetcher | Git: pulling latest changes...
+2026-03-15 17:06:14 | INFO     | main | PDF source: directory at C:\Users\pawan\Cursor projects\Maritime Assesment\backend\data\pdf_repos\acai\WAC
+2026-03-15 17:06:14 | INFO     | main | Building search index (this may take 1–2 minutes for many PDFs)...
+2026-03-15 17:06:18 | INFO     | retriever | Loaded 884 chunks from cache (no API calls).
+2026-03-15 17:06:18 | INFO     | main | Documents loaded from directory (18 total):
+2026-03-15 17:06:18 | INFO     | main |   1. WAC 296-45.pdf
+2026-03-15 17:06:18 | INFO     | main |   2. WAC 317-31-010.pdf
+2026-03-15 17:06:18 | INFO     | main |   3. WAC 317-31-020.pdf
+2026-03-15 17:06:18 | INFO     | main |   4. WAC 317-31-030.pdf
+2026-03-15 17:06:18 | INFO     | main |   5. WAC 317-31-100.pdf
+2026-03-15 17:06:18 | INFO     | main |   6. WAC 317-31-110.pdf
+2026-03-15 17:06:18 | INFO     | main |   7. WAC 317-31-120.pdf
+2026-03-15 17:06:18 | INFO     | main |   8. WAC 317-31-130.pdf
+2026-03-15 17:06:18 | INFO     | main |   9. WAC 317-31-140.pdf
+2026-03-15 17:06:18 | INFO     | main |   10. WAC 317-31-200.pdf
+2026-03-15 17:06:18 | INFO     | main |   11. WAC 317-31-210.pdf
+2026-03-15 17:06:18 | INFO     | main |   12. WAC 317-31-220.pdf
+2026-03-15 17:06:18 | INFO     | main |   13. WAC 317-31-230.pdf
+2026-03-15 17:06:18 | INFO     | main |   14. WAC 317-31-240.pdf
+2026-03-15 17:06:18 | INFO     | main |   15. WAC 317-31-250.pdf
+2026-03-15 17:06:18 | INFO     | main |   16. WAC 317-31-300.pdf
+2026-03-15 17:06:18 | INFO     | main |   17. WAC 317-31-310.pdf
+2026-03-15 17:06:18 | INFO     | main |   18. WAC 317-31-900.pdf
+2026-03-15 17:06:18 | INFO     | main | Application startup complete.
+2026-03-15 17:06:19 | INFO     | launcher | Backend started successfully.
